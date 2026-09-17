@@ -1,0 +1,40 @@
+# =====================================================================
+# Network IDS Framework - Central Configuration
+# All paths are relative to the project root.
+# =====================================================================
+
+project:
+  name: "Explainable and Cross-Dataset Generalizable ML Framework for NIDS"
+  random_state: 42
+
+paths:
+  cicids2017_dir: "datasets/CICIDS2017/MachineLearningCVE"
+  cicids2018_dir: "datasets/CSE_CIC_IDS2018"
+
+  results_dir: "results"
+  figures_dir: "results/figures"
+  metrics_dir: "results/metrics"
+  models_dir: "results/models"
+  reports_dir: "results/reports"
+  processed_dir: "results/processed"
+
+dataset:
+  # Option A scope: binary BENIGN vs DDoS from the Friday DDoS capture.
+  source_files:
+    - "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv"
+
+  label_column: "Label"
+  benign_label: "BENIGN"
+  attack_label: "DDOS"
+
+  positive_class: 1      # attack (DDoS)
+  negative_class: 0      # benign
+
+split:
+  test_size: 0.20
+  stratify: true
+
+plotting:
+  dpi: 150
+  figsize_default: [10, 6]
+  style: "seaborn-v0_8-whitegrid"
