@@ -1,0 +1,28 @@
+{
+  "rows_start": 225745,
+  "cols_start": 80,
+  "columns_dropped_upfront": [
+    "source_file",
+    "Fwd Header Length.1"
+  ],
+  "duplicates_removed": 2633,
+  "infinite_values_found": 56,
+  "rows_removed_nan_or_inf": 30,
+  "rows_removed_negative_flow_duration": 2,
+  "zero_variance_detected": [
+    "Bwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd PSH Flags",
+    "Bwd URG Flags",
+    "CWE Flag Count",
+    "Fwd Avg Bulk Rate",
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd URG Flags"
+  ],
+  "zero_variance_matches_eda": true,
+  "rows_final": 223080,
+  "cols_final": 68,
+  "rows_retained_pct": 98.819
+}
