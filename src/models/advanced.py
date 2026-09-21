@@ -64,3 +64,49 @@ def train_xgboost(X_train, y_train, random_state: int = 42,
     model.fit(X_train, y_train)
     train_time = time.time() - start
     return model, train_time
+
+
+
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestClassifier
+
+
+def tune_random_forest(X_train, y_train, random_state: int = 42, n_iter: int = 15, cv: int = 3):
+    """
+    Light RandomizedSearchCV over a small, sensible hyperparameter space.
+    n_iter=15 and cv=3 keep this fast (~15*3=45 fits) rather than an
+    exhaustive grid search, appropriate for a laptop-scale compute budget.
+
+    Scoring uses F1 (not accuracy) since it better reflects performance
+    on both classes under imbalance.
+    """
+    param_distributions = {
+        "n_estimators": [100, 150, 200, 300],
+        "max_depth": [10, 15, 20, None],
+        "min_samples_split": [2, 5, 10],
+        "min_samples_leaf": [1, 2, 4],
+        "max_features": ["sqrt", "log2"],
+    }
+
+    base_model = RandomForestClassifier(
+        class_weight="balanced",
+        random_state=random_state,
+        n_jobs=-1,
+    )
+
+    search = RandomizedSearchCV(
+        base_model,
+        param_distributions=param_distributions,
+        n_iter=n_iter,
+        cv=cv,
+        scoring="f1",
+        random_state=random_state,
+        n_jobs=-1,
+        verbose=1,
+    )
+
+    start = time.time()
+    search.fit(X_train, y_train)
+    tune_time = time.time() - start
+
+    return search.best_estimator_, search.best_params_, tune_time
