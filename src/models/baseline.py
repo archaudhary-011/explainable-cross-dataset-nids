@@ -31,7 +31,6 @@ def train_logistic_regression(X_train, y_train, random_state: int = 42):
         class_weight="balanced",
         max_iter=1000,
         random_state=random_state,
-        n_jobs=-1,
     )
     start = time.time()
     model.fit(X_train, y_train)
