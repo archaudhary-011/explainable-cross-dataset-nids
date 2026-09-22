@@ -1,0 +1,29 @@
+{
+  "total_source_features": 20,
+  "mapped_features": {
+    "Fwd Packet Length Max": "Fwd Pkt Len Max",
+    "Total Length of Fwd Packets": "TotLen Fwd Pkts",
+    "Destination Port": "Dst Port",
+    "Init_Win_bytes_forward": "Init Fwd Win Byts",
+    "act_data_pkt_fwd": "Fwd Act Data Pkts",
+    "Bwd Packet Length Max": "Bwd Pkt Len Max",
+    "Fwd Packet Length Mean": "Fwd Pkt Len Mean",
+    "Total Fwd Packets": "Tot Fwd Pkts",
+    "Bwd Packet Length Min": "Bwd Pkt Len Min",
+    "Init_Win_bytes_backward": "Init Bwd Win Byts",
+    "Fwd IAT Mean": "Fwd IAT Mean",
+    "Flow IAT Std": "Flow IAT Std",
+    "Bwd IAT Total": "Bwd IAT Tot",
+    "Bwd Packets/s": "Bwd Pkts/s",
+    "Max Packet Length": "Pkt Len Max",
+    "Packet Length Mean": "Pkt Len Mean",
+    "Bwd IAT Mean": "Bwd IAT Mean",
+    "URG Flag Count": "URG Flag Cnt",
+    "Packet Length Variance": "Pkt Len Var",
+    "Fwd Packet Length Min": "Fwd Pkt Len Min"
+  },
+  "n_mapped": 20,
+  "unmapped_features": [],
+  "n_unmapped": 0,
+  "final_feature_count": 20
+}
