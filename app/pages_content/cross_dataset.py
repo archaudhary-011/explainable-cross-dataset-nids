@@ -108,30 +108,44 @@ def render(cfg: dict):
             st.info(f"**Note:** {r['notes']}")
 
     st.markdown("---")
-    st.subheader("Why did this happen? Domain Shift Analysis (2018 case)")
+    st.subheader("Why did this happen? Domain Shift Analysis (all three targets)")
     st.markdown(
         "The model relies heavily on packet-size features (see Page 3 / SHAP analysis). "
-        "The Kolmogorov-Smirnov test below shows these exact features are the most "
-        "statistically shifted between the 2017 (source) and 2018 (target) domains — "
-        "this analysis was performed in depth for the 2018 case as a representative example."
+        "The Kolmogorov-Smirnov test below quantifies how far each target domain's "
+        "feature distributions have shifted from the training domain's - for the "
+        "attack class specifically, since that is where every model failed."
     )
 
-    shift_ddos_path = os.path.join(reports_dir, "domain_shift_ddos.csv")
-    if os.path.exists(shift_ddos_path):
-        shift_ddos = pd.read_csv(shift_ddos_path)
-        st.markdown("**Top 10 most-shifted features (DDoS class, 2017 vs 2018):**")
-        st.dataframe(
-            shift_ddos[["feature", "source_mean", "target_mean", "ks_statistic",
-                       "wasserstein_normalized", "significant_shift"]].head(10),
-            width="stretch",
-        )
-        n_sig = shift_ddos["significant_shift"].sum()
-        st.caption(f"{n_sig} of {len(shift_ddos)} features show statistically significant shift (KS test, p < 0.05).")
-
     figures_dir = cfg["paths"]["figures_dir"]
-    shift_plot_path = os.path.join(figures_dir, "domain_shift_top_feature.png")
-    if os.path.exists(shift_plot_path):
-        st.image(shift_plot_path, width="stretch")
+
+    shift_files = {
+        "cse_cic_ids2018": ("domain_shift_ddos.csv", "domain_shift_top_feature.png", "CSE-CIC-IDS2018"),
+        "unsw_nb15": ("domain_shift_unsw_nb15.csv", None, "UNSW-NB15"),
+        "cicddos2019": ("domain_shift_cicddos2019.csv", None, "CICDDoS2019"),
+    }
+
+    shift_tab_labels = [v[2] for k, v in shift_files.items() if os.path.exists(os.path.join(reports_dir, v[0]))]
+    shift_tabs = st.tabs(shift_tab_labels)
+
+    tab_idx = 0
+    for key, (csv_name, plot_name, label) in shift_files.items():
+        csv_path = os.path.join(reports_dir, csv_name)
+        if not os.path.exists(csv_path):
+            continue
+        with shift_tabs[tab_idx]:
+            shift_df = pd.read_csv(csv_path)
+            n_sig = shift_df["significant_shift"].sum()
+            st.caption(f"{n_sig} of {len(shift_df)} features show statistically significant shift (KS test, p < 0.05).")
+            st.dataframe(
+                shift_df[["feature", "source_mean", "target_mean", "ks_statistic",
+                         "wasserstein_normalized", "significant_shift"]].head(10),
+                width="stretch",
+            )
+            if plot_name:
+                plot_path = os.path.join(figures_dir, plot_name)
+                if os.path.exists(plot_path):
+                    st.image(plot_path, width="stretch")
+        tab_idx += 1
 
     st.markdown("---")
     st.subheader("Research Interpretation")
