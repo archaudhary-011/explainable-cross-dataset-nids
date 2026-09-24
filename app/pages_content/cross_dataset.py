@@ -3,9 +3,11 @@ cross_dataset.py
 -----------------
 Page 4: Cross-Dataset Generalization.
 
-Displays the Step 11 results: in-dataset vs cross-dataset performance,
-the generalization gap, and the domain shift analysis (KS test) that
-explains WHY performance collapsed on the target domain.
+Displays results for ALL THREE target datasets tested (matching the
+official project scope): CSE-CIC-IDS2018, UNSW-NB15, and CICDDoS2019.
+Loads results/reports/cross_dataset_all_results.json - one file
+containing every cross-dataset test result, saved by the corresponding
+notebooks (11, 13, 15).
 """
 
 import os
@@ -17,88 +19,141 @@ import streamlit as st
 def render(cfg: dict):
     st.title("4. Cross-Dataset Generalization")
     st.markdown(
-        "Testing the CICIDS2017-trained model on **CSE-CIC-IDS2018** "
-        "(Wednesday-21-02-2018: DDoS-HOIC + DDoS-LOIC-UDP)."
+        "The CICIDS2017-trained model was tested on **three independent external "
+        "datasets** to measure real-world generalization, matching the official "
+        "project scope (train on Dataset A, test on Datasets B, C, D)."
     )
 
-    metrics_dir = cfg["paths"]["metrics_dir"]
     reports_dir = cfg["paths"]["reports_dir"]
+    metrics_dir = cfg["paths"]["metrics_dir"]
+    results_path = os.path.join(reports_dir, "cross_dataset_all_results.json")
 
-    in_dataset_path = os.path.join(metrics_dir, "final_model_metrics.csv")
-    if not os.path.exists(in_dataset_path):
-        st.error("In-dataset metrics not found. Run notebooks/07_final_model.ipynb first.")
+    if not os.path.exists(results_path):
+        st.error(f"Cross-dataset results not found at:\n{results_path}")
         return
 
-    in_dataset = pd.read_csv(in_dataset_path).iloc[0]
+    with open(results_path) as f:
+        all_results = json.load(f)
 
-    # Cross-dataset metrics were printed but not saved to CSV in Step 11 -
-    # hardcoded here from the actual executed result (see notebooks/11_cross_dataset_evaluation.ipynb)
-    st.subheader("In-Dataset vs Cross-Dataset Performance")
+    in_dataset_path = os.path.join(metrics_dir, "final_model_metrics.csv")
+    in_dataset_f1 = None
+    if os.path.exists(in_dataset_path):
+        in_dataset_f1 = pd.read_csv(in_dataset_path).iloc[0]["f1"]
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("In-Dataset F1 (2017 test set)", f"{in_dataset['f1']:.4f}")
-    with col2:
-        st.metric("Cross-Dataset F1 (2018)", "0.0000", delta="-0.9999", delta_color="inverse")
-    with col3:
-        st.metric("Generalization Gap", "0.9999")
+    # --- Summary table across all three targets ---
+    st.subheader("Summary: In-Dataset vs All Cross-Dataset Targets")
+
+    rows = []
+    if in_dataset_f1 is not None:
+        rows.append({
+            "Dataset": "CICIDS2017 (in-dataset, held-out test set)",
+            "Feature Overlap": "20/20 (100%)",
+            "Same Tool": "—",
+            "F1-score": in_dataset_f1,
+            "ROC-AUC": None,
+            "FNR": None,
+        })
+
+    dataset_order = ["cse_cic_ids2018", "unsw_nb15", "cicddos2019"]
+    for key in dataset_order:
+        if key in all_results:
+            r = all_results[key]
+            rows.append({
+                "Dataset": r["dataset_name"],
+                "Feature Overlap": r["feature_overlap"],
+                "Same Tool": "Yes" if r["same_tool"] else "No",
+                "F1-score": r["f1"],
+                "ROC-AUC": r["roc_auc"],
+                "FNR": r["fnr"],
+            })
+
+    summary_df = pd.DataFrame(rows)
+    st.dataframe(
+        summary_df.style.format({"F1-score": "{:.4f}", "ROC-AUC": "{:.4f}", "FNR": "{:.4f}"}, na_rep="—"),
+        width="stretch",
+    )
 
     st.error(
-        "**The model failed completely on the target domain.** "
-        "False Negative Rate = 1.0000 — every single DDoS flow in the 2018 "
-        "dataset was misclassified as BENIGN."
+        "**The model failed to generalize on all three external datasets.** "
+        "Every target shows FNR ≈ 1.0000 (near-total miss rate on attack traffic), "
+        "regardless of feature overlap or shared tooling with the source domain."
     )
-
-    st.subheader("Cross-Dataset Confusion Matrix")
-    cm_data = pd.DataFrame(
-        [[360519, 0], [200591, 0]],
-        index=["Actual BENIGN", "Actual DDoS"],
-        columns=["Predicted BENIGN", "Predicted DDoS"],
-    )
-    st.dataframe(cm_data, width="stretch")
 
     st.markdown("---")
-    st.subheader("Why did this happen? Domain Shift Analysis")
+
+    # --- Detailed tabs per dataset ---
+    st.subheader("Detailed Results Per Dataset")
+    tab_labels = [all_results[k]["dataset_name"] for k in dataset_order if k in all_results]
+    tabs = st.tabs(tab_labels)
+
+    for tab, key in zip(tabs, [k for k in dataset_order if k in all_results]):
+        r = all_results[key]
+        with tab:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("F1-score", f"{r['f1']:.4f}")
+            col2.metric("ROC-AUC", f"{r['roc_auc']:.4f}")
+            col3.metric("FPR", f"{r['fpr']:.4f}")
+            col4.metric("FNR", f"{r['fnr']:.4f}")
+
+            st.markdown(f"**Feature overlap:** {r['feature_overlap']}  |  **Same extraction tool:** {'Yes' if r['same_tool'] else 'No'} ({r['tool_used']})")
+            st.markdown(f"**Test samples:** {r['n_samples']:,}")
+
+            cm_data = pd.DataFrame(
+                [[r["tn"], r["fp"]], [r["fn"], r["tp"]]],
+                index=["Actual BENIGN", "Actual Attack"],
+                columns=["Predicted BENIGN", "Predicted Attack"],
+            )
+            st.dataframe(cm_data, width="stretch")
+
+            st.info(f"**Note:** {r['notes']}")
+
+    st.markdown("---")
+    st.subheader("Why did this happen? Domain Shift Analysis (2018 case)")
     st.markdown(
         "The model relies heavily on packet-size features (see Page 3 / SHAP analysis). "
         "The Kolmogorov-Smirnov test below shows these exact features are the most "
-        "statistically shifted between the 2017 (source) and 2018 (target) domains."
+        "statistically shifted between the 2017 (source) and 2018 (target) domains — "
+        "this analysis was performed in depth for the 2018 case as a representative example."
     )
 
     shift_ddos_path = os.path.join(reports_dir, "domain_shift_ddos.csv")
     if os.path.exists(shift_ddos_path):
         shift_ddos = pd.read_csv(shift_ddos_path)
-        st.markdown("**Top 10 most-shifted features (DDoS class, source vs target):**")
+        st.markdown("**Top 10 most-shifted features (DDoS class, 2017 vs 2018):**")
         st.dataframe(
             shift_ddos[["feature", "source_mean", "target_mean", "ks_statistic",
                        "wasserstein_normalized", "significant_shift"]].head(10),
             width="stretch",
         )
-
         n_sig = shift_ddos["significant_shift"].sum()
         st.caption(f"{n_sig} of {len(shift_ddos)} features show statistically significant shift (KS test, p < 0.05).")
-    else:
-        st.info("Domain shift report not found. Run notebooks/11_cross_dataset_evaluation.ipynb first.")
 
     figures_dir = cfg["paths"]["figures_dir"]
     shift_plot_path = os.path.join(figures_dir, "domain_shift_top_feature.png")
     if os.path.exists(shift_plot_path):
-        st.subheader("Distribution shift for the most-shifted feature")
         st.image(shift_plot_path, width="stretch")
 
     st.markdown("---")
     st.subheader("Research Interpretation")
     st.markdown(
         """
-        This result demonstrates a well-documented limitation in network intrusion detection
-        research: a model trained on one attack tool's traffic signature (2017's DDoS tool,
-        characterized by very small packet sizes) does not automatically detect a different
-        attack tool's version of the "same" attack category (2018's HOIC/LOIC-UDP tools,
-        which produce much larger packets).
+        This project tested cross-dataset generalization against **three independent
+        external datasets**, deliberately chosen to vary in feature-extraction tooling
+        and attack methodology:
 
-        **This is the central research finding of this project**: high in-dataset accuracy
-        (99.99%) does not imply real-world generalization, and explainability analysis (SHAP)
-        combined with domain shift statistics (KS test) can *predict and explain* this failure
-        before it is even observed empirically.
+        - **CSE-CIC-IDS2018**: same tool (CICFlowMeter), 100% feature overlap — isolates
+          the effect of *attack-signature drift alone*.
+        - **UNSW-NB15**: different tool (Argus/Bro-IDS), only 35% feature overlap, with
+          2 of those 7 "common" features later found to be semantically mismatched —
+          isolates the effect of *tooling and measurement heterogeneity*.
+        - **CICDDoS2019**: same tool, 100% feature overlap — a second same-tool test;
+          some rank-ordering signal survived (ROC-AUC = 0.698) but no usable operating
+          point existed at any decision threshold.
+
+        **All three failed completely** (FNR ≈ 1.0, best achievable F1 ≈ 0 in every case),
+        despite the model achieving 99.99% F1 in-dataset. This demonstrates that high
+        in-dataset accuracy provides no guarantee of real-world generalization — a
+        finding that holds regardless of whether the failure mode is attack-signature
+        drift, tooling incompatibility, or a combination of both.
         """
     )
