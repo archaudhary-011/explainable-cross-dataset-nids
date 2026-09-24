@@ -1,0 +1,16 @@
+{
+  "total_source_features": 7,
+  "mapped_features": {
+    "Total Fwd Packets": "spkts",
+    "Fwd Packet Length Mean": "smean",
+    "Total Length of Fwd Packets": "sbytes",
+    "Init_Win_bytes_forward": "swin",
+    "Init_Win_bytes_backward": "dwin",
+    "Fwd IAT Mean": "sinpkt",
+    "Bwd IAT Mean": "dinpkt"
+  },
+  "n_mapped": 7,
+  "unmapped_features": [],
+  "n_unmapped": 0,
+  "final_feature_count": 7
+}
