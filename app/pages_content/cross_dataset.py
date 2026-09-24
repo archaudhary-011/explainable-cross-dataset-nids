@@ -120,9 +120,10 @@ def render(cfg: dict):
 
     shift_files = {
         "cse_cic_ids2018": ("domain_shift_ddos.csv", "domain_shift_top_feature.png", "CSE-CIC-IDS2018"),
-        "unsw_nb15": ("domain_shift_unsw_nb15.csv", None, "UNSW-NB15"),
-        "cicddos2019": ("domain_shift_cicddos2019.csv", None, "CICDDoS2019"),
+        "unsw_nb15": ("domain_shift_unsw_nb15.csv", "domain_shift_unsw_top_feature.png", "UNSW-NB15"),
+        "cicddos2019": ("domain_shift_cicddos2019.csv", "domain_shift_cicddos2019_top_feature.png", "CICDDoS2019"),
     }
+    
 
     shift_tab_labels = [v[2] for k, v in shift_files.items() if os.path.exists(os.path.join(reports_dir, v[0]))]
     shift_tabs = st.tabs(shift_tab_labels)
