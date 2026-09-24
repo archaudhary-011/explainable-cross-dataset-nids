@@ -2,12 +2,14 @@
 alignment.py
 ------------
 Feature alignment between CICIDS2017 (source, training domain) and
-CSE-CIC-IDS2018 (target, external test domain).
+external target domains (CSE-CIC-IDS2018, UNSW-NB15, etc.).
 
-The two datasets use different CICFlowMeter versions with different
-column naming conventions for the SAME underlying features (e.g.
-'Fwd Packet Length Max' in 2017 = 'Fwd Pkt Len Max' in 2018). This
-module provides an explicit, documented mapping - never a silent guess.
+Different datasets use different feature-extraction tools with different
+naming conventions AND different underlying feature definitions:
+  - CICIDS2017 / CSE-CIC-IDS2018: both use CICFlowMeter (same tool,
+    different versions) -> names differ, but almost all features map 1:1.
+  - UNSW-NB15: uses Argus + Bro-IDS (a DIFFERENT tool entirely) -> most
+    features have no direct counterpart, only a small common subset exists.
 
 Any feature that cannot be confidently mapped is DROPPED and REPORTED,
 never silently discarded.
@@ -15,11 +17,7 @@ never silently discarded.
 
 import pandas as pd
 
-# Explicit name mapping: 2017 name -> 2018 name.
-# Built by manually matching CICFlowMeter's documented feature semantics
-# across the two dataset versions. Only includes features relevant to
-# our Step 6 selected feature set, but structured so it can be extended
-# to the full feature set if needed later.
+# --- CICIDS2017 -> CSE-CIC-IDS2018 mapping (same tool, renamed columns) ---
 FEATURE_NAME_MAP_2017_TO_2018 = {
     "Fwd Packet Length Max": "Fwd Pkt Len Max",
     "Total Length of Fwd Packets": "TotLen Fwd Pkts",
@@ -43,20 +41,40 @@ FEATURE_NAME_MAP_2017_TO_2018 = {
     "Fwd Packet Length Min": "Fwd Pkt Len Min",
 }
 
+# --- CICIDS2017 -> UNSW-NB15 mapping (DIFFERENT tool: Argus/Bro-IDS) ---
+# Only features with a genuine conceptual counterpart are included.
+# Units and exact computation may still differ even where concepts match
+# (e.g. inter-packet timing granularity) - this is documented as a
+# limitation, not hidden.
+FEATURE_NAME_MAP_2017_TO_UNSW = {
+    "Total Fwd Packets": "spkts",             # source packet count
+    "Fwd Packet Length Mean": "smean",         # mean packet size, source->dest
+    "Total Length of Fwd Packets": "sbytes",   # source bytes
+    "Init_Win_bytes_forward": "swin",          # source TCP window size
+    "Init_Win_bytes_backward": "dwin",         # destination TCP window size
+    "Fwd IAT Mean": "sinpkt",                  # source inter-packet arrival time
+    "Bwd IAT Mean": "dinpkt",                  # destination inter-packet arrival time
+}
 
-def build_alignment_report(selected_features_2017: list) -> dict:
+
+def build_alignment_report(selected_features_2017: list, mapping: dict = None) -> dict:
     """
     For a given list of source-domain (2017) feature names, checks which
-    have a known mapping to the target domain (2018) and which do not.
-    This is the transparency report required by the project spec:
-    total source features, common, unavailable, mapped, dropped, final count.
+    have a known mapping to the target domain and which do not.
+
+    mapping: which target-domain map to use. Defaults to the 2018 map
+    for backward compatibility; pass FEATURE_NAME_MAP_2017_TO_UNSW for
+    the UNSW-NB15 target.
     """
+    if mapping is None:
+        mapping = FEATURE_NAME_MAP_2017_TO_2018
+
     mapped = {}
     unmapped = []
 
     for feat in selected_features_2017:
-        if feat in FEATURE_NAME_MAP_2017_TO_2018:
-            mapped[feat] = FEATURE_NAME_MAP_2017_TO_2018[feat]
+        if feat in mapping:
+            mapped[feat] = mapping[feat]
         else:
             unmapped.append(feat)
 
@@ -76,39 +94,41 @@ def print_alignment_report(report: dict) -> None:
     print("CROSS-DATASET FEATURE ALIGNMENT REPORT")
     print("=" * 64)
     print(f"Total source (2017) features:     {report['total_source_features']}")
-    print(f"Successfully mapped to 2018:      {report['n_mapped']}")
-    print(f"Unmapped (would be dropped):      {report['n_unmapped']}")
+    print(f"Successfully mapped to target:    {report['n_mapped']}")
+    print(f"Unmapped (dropped):               {report['n_unmapped']}")
     if report["unmapped_features"]:
         print(f"  Unmapped features: {report['unmapped_features']}")
     print(f"Final aligned feature count:      {report['final_feature_count']}")
     print("-" * 64)
-    print("Mapping used (2017 -> 2018):")
+    print("Mapping used (2017 -> target):")
     for k, v in report["mapped_features"].items():
         print(f"    {k:<35} -> {v}")
     print("=" * 64)
 
 
-def rename_2018_to_2017_schema(df_2018: pd.DataFrame, report: dict) -> pd.DataFrame:
+def rename_target_to_source_schema(df_target: pd.DataFrame, report: dict) -> pd.DataFrame:
     """
-    Selects only the mapped columns from the 2018 dataframe and renames
-    them back to the 2017 (source) naming convention. This means the
-    SAME trained model (which expects 2017 column names/order) can be
-    applied directly to the renamed 2018 data with zero changes.
+    Selects only the mapped columns from the target dataframe and renames
+    them back to the 2017 (source) naming convention, so a model trained
+    on 2017 column names/order can be applied directly with zero changes.
     """
     reverse_map = {v: k for k, v in report["mapped_features"].items()}
-    cols_2018_needed = list(reverse_map.keys())
+    cols_target_needed = list(reverse_map.keys())
 
-    missing = [c for c in cols_2018_needed if c not in df_2018.columns]
+    missing = [c for c in cols_target_needed if c not in df_target.columns]
     if missing:
         raise ValueError(
-            f"Expected 2018 columns not found in dataframe: {missing}. "
+            f"Expected target columns not found in dataframe: {missing}. "
             f"Check that the correct CSV file was loaded."
         )
 
-    aligned = df_2018[cols_2018_needed].copy()
+    aligned = df_target[cols_target_needed].copy()
     aligned = aligned.rename(columns=reverse_map)
-
-    # Reorder to match the exact order of the original 2017 selected features
     aligned = aligned[list(report["mapped_features"].keys())]
 
     return aligned
+
+
+# Backward-compatible alias (used in earlier notebooks for the 2018 case)
+def rename_2018_to_2017_schema(df_2018: pd.DataFrame, report: dict) -> pd.DataFrame:
+    return rename_target_to_source_schema(df_2018, report)
