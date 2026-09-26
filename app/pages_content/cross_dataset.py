@@ -13,6 +13,7 @@ notebooks (11, 13, 15).
 import os
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
 import streamlit as st
 
 
@@ -26,6 +27,7 @@ def render(cfg: dict):
 
     reports_dir = cfg["paths"]["reports_dir"]
     metrics_dir = cfg["paths"]["metrics_dir"]
+    figures_dir = cfg["paths"]["figures_dir"]
     results_path = os.path.join(reports_dir, "cross_dataset_all_results.json")
 
     if not os.path.exists(results_path):
@@ -36,40 +38,89 @@ def render(cfg: dict):
         all_results = json.load(f)
 
     in_dataset_path = os.path.join(metrics_dir, "final_model_metrics.csv")
-    in_dataset_f1 = None
+    in_dataset_row = None
     if os.path.exists(in_dataset_path):
-        in_dataset_f1 = pd.read_csv(in_dataset_path).iloc[0]["f1"]
-
-    # --- Summary table across all three targets ---
-    st.subheader("Summary: In-Dataset vs All Cross-Dataset Targets")
-
-    rows = []
-    if in_dataset_f1 is not None:
-        rows.append({
-            "Dataset": "CICIDS2017 (in-dataset, held-out test set)",
-            "Feature Overlap": "20/20 (100%)",
-            "Same Tool": "—",
-            "F1-score": in_dataset_f1,
-            "ROC-AUC": None,
-            "FNR": None,
-        })
+        in_dataset_row = pd.read_csv(in_dataset_path).iloc[0]
 
     dataset_order = ["cse_cic_ids2018", "unsw_nb15", "cicddos2019"]
+
+    # --- At-a-glance F1 comparison chart: in-dataset vs all 3 targets ---
+    st.subheader("At a Glance: The Generalization Cliff")
+
+    chart_labels = []
+    chart_f1 = []
+    chart_colors = []
+
+    if in_dataset_row is not None:
+        chart_labels.append("CICIDS2017\n(in-dataset)")
+        chart_f1.append(in_dataset_row["f1"])
+        chart_colors.append("#2ca02c")  # green
+
+    for key in dataset_order:
+        if key in all_results:
+            r = all_results[key]
+            short_name = {
+                "cse_cic_ids2018": "CSE-CIC-\nIDS2018",
+                "unsw_nb15": "UNSW-\nNB15",
+                "cicddos2019": "CICDDoS\n2019",
+            }[key]
+            chart_labels.append(short_name)
+            chart_f1.append(r["f1"])
+            chart_colors.append("#d62728")  # red
+
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    bars = ax.bar(chart_labels, chart_f1, color=chart_colors)
+    ax.set_ylabel("F1-score")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("F1-score: In-Dataset vs Cross-Dataset Targets")
+    for bar, val in zip(bars, chart_f1):
+        ax.text(bar.get_x() + bar.get_width() / 2, val + 0.02, f"{val:.4f}",
+                ha="center", fontsize=10, fontweight="bold")
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+    st.caption(
+        "Green = performance on held-out CICIDS2017 test data (same distribution as training). "
+        "Red = performance on completely unseen external datasets."
+    )
+
+    st.markdown("---")
+
+    # --- Summary table ---
+    st.subheader("Summary Table: Full Metric Set")
+
+    rows = []
+    if in_dataset_row is not None:
+        rows.append({
+            "Dataset": "CICIDS2017 (in-dataset)",
+            "Feature Overlap": "20/20 (100%)",
+            "Accuracy": in_dataset_row["accuracy"],
+            "Precision": in_dataset_row["precision"],
+            "Recall": in_dataset_row["recall"],
+            "F1-score": in_dataset_row["f1"],
+            "ROC-AUC": in_dataset_row["roc_auc"],
+            "FPR": in_dataset_row["fpr"],
+        })
+
     for key in dataset_order:
         if key in all_results:
             r = all_results[key]
             rows.append({
                 "Dataset": r["dataset_name"],
                 "Feature Overlap": r["feature_overlap"],
-                "Same Tool": "Yes" if r["same_tool"] else "No",
+                "Accuracy": r["accuracy"],
+                "Precision": r["precision"],
+                "Recall": r["recall"],
                 "F1-score": r["f1"],
                 "ROC-AUC": r["roc_auc"],
-                "FNR": r["fnr"],
+                "FPR": r["fpr"],
             })
 
     summary_df = pd.DataFrame(rows)
+    num_cols = ["Accuracy", "Precision", "Recall", "F1-score", "ROC-AUC", "FPR"]
     st.dataframe(
-        summary_df.style.format({"F1-score": "{:.4f}", "ROC-AUC": "{:.4f}", "FNR": "{:.4f}"}, na_rep="—"),
+        summary_df.style.format({c: "{:.4f}" for c in num_cols}),
         width="stretch",
     )
 
@@ -89,13 +140,22 @@ def render(cfg: dict):
     for tab, key in zip(tabs, [k for k in dataset_order if k in all_results]):
         r = all_results[key]
         with tab:
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("F1-score", f"{r['f1']:.4f}")
-            col2.metric("ROC-AUC", f"{r['roc_auc']:.4f}")
-            col3.metric("FPR", f"{r['fpr']:.4f}")
-            col4.metric("FNR", f"{r['fnr']:.4f}")
+            row1 = st.columns(4)
+            row1[0].metric("Accuracy", f"{r['accuracy']:.4f}")
+            row1[1].metric("Precision", f"{r['precision']:.4f}")
+            row1[2].metric("Recall", f"{r['recall']:.4f}")
+            row1[3].metric("F1-score", f"{r['f1']:.4f}")
 
-            st.markdown(f"**Feature overlap:** {r['feature_overlap']}  |  **Same extraction tool:** {'Yes' if r['same_tool'] else 'No'} ({r['tool_used']})")
+            row2 = st.columns(4)
+            row2[0].metric("ROC-AUC", f"{r['roc_auc']:.4f}")
+            row2[1].metric("PR-AUC", f"{r['pr_auc']:.4f}")
+            row2[2].metric("FPR", f"{r['fpr']:.4f}")
+            row2[3].metric("FNR", f"{r['fnr']:.4f}")
+
+            st.markdown(
+                f"**Feature overlap:** {r['feature_overlap']}  |  "
+                f"**Same extraction tool:** {'Yes' if r['same_tool'] else 'No'} ({r['tool_used']})"
+            )
             st.markdown(f"**Test samples:** {r['n_samples']:,}")
 
             cm_data = pd.DataFrame(
@@ -108,6 +168,8 @@ def render(cfg: dict):
             st.info(f"**Note:** {r['notes']}")
 
     st.markdown("---")
+
+    # --- Domain shift section: all three targets as tabs ---
     st.subheader("Why did this happen? Domain Shift Analysis (all three targets)")
     st.markdown(
         "The model relies heavily on packet-size features (see Page 3 / SHAP analysis). "
@@ -116,37 +178,35 @@ def render(cfg: dict):
         "attack class specifically, since that is where every model failed."
     )
 
-    figures_dir = cfg["paths"]["figures_dir"]
-
     shift_files = {
         "cse_cic_ids2018": ("domain_shift_ddos.csv", "domain_shift_top_feature.png", "CSE-CIC-IDS2018"),
         "unsw_nb15": ("domain_shift_unsw_nb15.csv", "domain_shift_unsw_top_feature.png", "UNSW-NB15"),
         "cicddos2019": ("domain_shift_cicddos2019.csv", "domain_shift_cicddos2019_top_feature.png", "CICDDoS2019"),
     }
-    
 
     shift_tab_labels = [v[2] for k, v in shift_files.items() if os.path.exists(os.path.join(reports_dir, v[0]))]
-    shift_tabs = st.tabs(shift_tab_labels)
+    if shift_tab_labels:
+        shift_tabs = st.tabs(shift_tab_labels)
 
-    tab_idx = 0
-    for key, (csv_name, plot_name, label) in shift_files.items():
-        csv_path = os.path.join(reports_dir, csv_name)
-        if not os.path.exists(csv_path):
-            continue
-        with shift_tabs[tab_idx]:
-            shift_df = pd.read_csv(csv_path)
-            n_sig = shift_df["significant_shift"].sum()
-            st.caption(f"{n_sig} of {len(shift_df)} features show statistically significant shift (KS test, p < 0.05).")
-            st.dataframe(
-                shift_df[["feature", "source_mean", "target_mean", "ks_statistic",
-                         "wasserstein_normalized", "significant_shift"]].head(10),
-                width="stretch",
-            )
-            if plot_name:
-                plot_path = os.path.join(figures_dir, plot_name)
-                if os.path.exists(plot_path):
-                    st.image(plot_path, width="stretch")
-        tab_idx += 1
+        tab_idx = 0
+        for key, (csv_name, plot_name, label) in shift_files.items():
+            csv_path = os.path.join(reports_dir, csv_name)
+            if not os.path.exists(csv_path):
+                continue
+            with shift_tabs[tab_idx]:
+                shift_df = pd.read_csv(csv_path)
+                n_sig = shift_df["significant_shift"].sum()
+                st.caption(f"{n_sig} of {len(shift_df)} features show statistically significant shift (KS test, p < 0.05).")
+                st.dataframe(
+                    shift_df[["feature", "source_mean", "target_mean", "ks_statistic",
+                             "wasserstein_normalized", "significant_shift"]].head(10),
+                    width="stretch",
+                )
+                if plot_name:
+                    plot_path = os.path.join(figures_dir, plot_name)
+                    if os.path.exists(plot_path):
+                        st.image(plot_path, width="stretch")
+            tab_idx += 1
 
     st.markdown("---")
     st.subheader("Research Interpretation")
