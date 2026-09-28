@@ -17,7 +17,7 @@
     "fp": 0,
     "fn": 55717,
     "tp": 0,
-    "notes": "Init_Win_bytes_forward/backward found to be semantically mismatched (capped 0-255 vs full 16-bit range in source domain)"
+    "notes": "7-feature model. No model beats the 'flag everything' baseline (F1 0.612) by more than 0.02. Init_Win_bytes_* are semantically mismatched (0-255 vs 16-bit range)."
   },
   "cicddos2019": {
     "dataset_name": "CICDDoS2019 (UDPLag)",
@@ -37,8 +37,9 @@
     "fp": 0,
     "fn": 256998,
     "tp": 0,
-    "best_f1_any_threshold": 0.0,
-    "notes": "Same tool, full feature overlap, some rank-signal survived (ROC-AUC=0.698) but zero usable F1 at any decision threshold"
+    "best_f1_any_threshold": 0.9931,
+    "notes": "Class is 98.6% attack, so F1 is dominated by prevalence. No model beats the 'flag everything' baseline (F1 0.9931) at any threshold: no usable signal.",
+    "trivial_baseline_f1": 0.9931
   },
   "cse_cic_ids2018": {
     "dataset_name": "CSE-CIC-IDS2018 (Wed-21-02, HOIC+LOIC-UDP)",
@@ -58,6 +59,6 @@
     "fp": 0,
     "fn": 200591,
     "tp": 0,
-    "notes": "Root cause quantified via KS-test domain shift analysis - packet-length features (top model dependency) among most-shifted"
+    "notes": "Final RF: no threshold beats the trivial baseline. LR and XGBoost keep ranking signal (ROC-AUC 0.986/0.960; oracle best F1 0.991/0.943 vs baseline 0.527), i.e. default-threshold miscalibration. KS analysis shows packet-length features among the most shifted."
   }
 }

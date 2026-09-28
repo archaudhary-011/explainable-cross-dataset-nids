@@ -11,10 +11,11 @@ explains their predictions using SHAP and LIME, and rigorously tests whether the
 trained model generalizes to **three independent external datasets**: CSE-CIC-IDS2018,
 UNSW-NB15, and CICDDoS2019.
 
-**Headline finding:** despite achieving 99.99% F1-score in-dataset, the final model
-achieved a False Negative Rate of ~1.0 (near-total miss rate) on all three external
-datasets — a result explained and quantified using SHAP feature-importance analysis
-and Kolmogorov-Smirnov domain-shift testing.
+**Headline finding:** the final Random Forest achieves 99.99% F1 in-dataset but F1 = 0 (FNR = 1.0)
+on all three external datasets at the default threshold. A follow-up comparison of all four models
+with an oracle-threshold analysis shows no model beats the trivial "flag everything" baseline on
+CICDDoS2019 or UNSW-NB15, while on CSE-CIC-IDS2018 Logistic Regression and XGBoost retain ranking
+signal (ROC-AUC 0.986 / 0.960) that the default threshold fails to exploit.
 
 ## Research Scope
 
@@ -107,6 +108,12 @@ streamlit run app/app.py
 | CICDDoS2019 | 20/20 (100%) | Yes | 0.0000 | 1.0000 |
 
 Full metrics, figures, and reports are saved under `results/`.
+
+### Multi-model cross-dataset comparison
+Results for all 4 models on every target are in `results/metrics/multi_model_cross_dataset.csv` and
+`threshold_analysis_all_models.csv` (notebook 16). Thresholds in the analysis are chosen using target
+labels, so they are diagnostic upper bounds, not deployable results. Note that the CICDDoS2019 file is
+98.6% attack, so F1 there is dominated by class prevalence.
 
 ## Reproducibility Notes
 

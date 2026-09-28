@@ -81,8 +81,8 @@ def render(cfg: dict):
     plt.close(fig)
 
     st.caption(
-        "Green = performance on held-out CICIDS2017 test data (same distribution as training). "
-        "Red = performance on completely unseen external datasets."
+        "Final Random Forest at the default 0.5 threshold. Green = held-out CICIDS2017 test data. "
+        "Red = completely unseen external datasets."
     )
 
     st.markdown("---")
@@ -209,26 +209,32 @@ def render(cfg: dict):
             tab_idx += 1
 
     st.markdown("---")
+    st.markdown("---")
+    st.subheader("All 4 Models Compared Cross-Dataset")
+    heatmap_path = os.path.join(figures_dir, "multi_model_cross_dataset_heatmap.png")
+    if os.path.exists(heatmap_path):
+        st.image(heatmap_path, width="stretch")
+    thr_path = os.path.join(metrics_dir, "threshold_analysis_all_models.csv")
+    if os.path.exists(thr_path):
+        st.markdown("**Threshold analysis** (best F1 vs the trivial 'flag everything' baseline; "
+                    "threshold chosen with target labels, diagnostic only):")
+        st.dataframe(pd.read_csv(thr_path).drop(columns=["best_threshold"]), width="stretch")
     st.subheader("Research Interpretation")
     st.markdown(
         """
-        This project tested cross-dataset generalization against **three independent
-        external datasets**, deliberately chosen to vary in feature-extraction tooling
-        and attack methodology:
+        The final Random Forest reaches F1 = 0.9999 in-dataset but F1 = 0.0000 on all three
+        external datasets at the default threshold (FNR = 1.0).
 
-        - **CSE-CIC-IDS2018**: same tool (CICFlowMeter), 100% feature overlap — isolates
-          the effect of *attack-signature drift alone*.
-        - **UNSW-NB15**: different tool (Argus/Bro-IDS), only 35% feature overlap, with
-          2 of those 7 "common" features later found to be semantically mismatched —
-          isolates the effect of *tooling and measurement heterogeneity*.
-        - **CICDDoS2019**: same tool, 100% feature overlap — a second same-tool test;
-          some rank-ordering signal survived (ROC-AUC = 0.698) but no usable operating
-          point existed at any decision threshold.
+        A multi-model and threshold analysis (4 models; oracle threshold, diagnostic only) refines this:
 
-        **All three failed completely** (FNR ≈ 1.0, best achievable F1 ≈ 0 in every case),
-        despite the model achieving 99.99% F1 in-dataset. This demonstrates that high
-        in-dataset accuracy provides no guarantee of real-world generalization — a
-        finding that holds regardless of whether the failure mode is attack-signature
-        drift, tooling incompatibility, or a combination of both.
+        - **CICDDoS2019 and UNSW-NB15:** no model, at any threshold, meaningfully beats labelling
+        everything as attack (gain over baseline at most 0.02). No usable transferable signal was found.
+        - **CSE-CIC-IDS2018:** Random Forest and Decision Tree gain nothing, but Logistic Regression
+        (best F1 0.991) and XGBoost (0.943) keep strong ranking ability (ROC-AUC 0.986 / 0.960)
+        against a baseline F1 of 0.527. Their failure at the default threshold is largely miscalibration.
+
+        High in-dataset accuracy did not carry over to any external dataset at the default operating
+        point, and for the final Random Forest no threshold recovers it. Why some models transfer to 2018
+        and others do not was not determined in this study.
         """
     )
