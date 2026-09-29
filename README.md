@@ -126,6 +126,15 @@ labels, so they are diagnostic upper bounds, not deployable results. Note that t
   fit exclusively on training data; test/cross-dataset data is only ever transformed.
 - Every cleaning, alignment, and domain-shift step logs a machine-readable JSON report
   under `results/reports/` documenting exactly what was removed/mapped/dropped and why.
+  
+  - **Class imbalance:** handled via `class_weight="balanced"` (Logistic Regression, Decision
+  Tree, Random Forest) and `scale_pos_weight` (XGBoost) — computed from training labels only.
+  SMOTE was not used; the observed imbalance (~1.3:1 to 1.4:1 across datasets) was judged mild
+  enough that reweighting was sufficient, avoiding the risks of synthetic sample generation.
+- **Categorical encoding:** not required. All four datasets' selected/aligned features are
+  purely numeric flow statistics (packet lengths, timings, flags, byte counts) produced by
+  CICFlowMeter or Argus/Bro-IDS; no categorical columns (e.g. protocol, service) were included
+  in the final feature sets.
 
 ## Citations for Datasets Used
 
