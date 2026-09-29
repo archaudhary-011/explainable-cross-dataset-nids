@@ -81,8 +81,9 @@ def render(cfg: dict):
     plt.close(fig)
 
     st.caption(
-        "Final Random Forest at the default 0.5 threshold. Green = held-out CICIDS2017 test data. "
-        "Red = completely unseen external datasets."
+        "Random Forest at the default 0.5 threshold (20 features; UNSW-NB15 uses the auxiliary "
+        "7-feature model). Green = held-out CICIDS2017 test data. Red = unseen externa "
+        "datasets."
     )
 
     st.markdown("---")
