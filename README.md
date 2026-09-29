@@ -15,7 +15,9 @@ UNSW-NB15, and CICDDoS2019.
 on all three external datasets at the default threshold. A follow-up comparison of all four models
 with an oracle-threshold analysis shows no model beats the trivial "flag everything" baseline on
 CICDDoS2019 or UNSW-NB15, while on CSE-CIC-IDS2018 Logistic Regression and XGBoost retain ranking
-signal (ROC-AUC 0.986 / 0.960) that the default threshold fails to exploit.
+signal (ROC-AUC 0.986 / 0.960) that the default threshold fails to exploit — though the apparent
+ranking ability at extreme thresholds appears driven by numerical saturation under severe distribution
+shift (near-zero thresholds, e.g. 1e-8), rather than a genuine, usable decision boundary.
 
 ## Research Scope
 
@@ -39,7 +41,7 @@ Network_IDS_Framework/
 ├── configs/
 │   └── config.yaml             # Central config: paths, random seed, dataset scope
 ├── datasets/                   # Raw downloaded datasets (not committed to git)
-├── notebooks/                  # Numbered, sequential pipeline notebooks (01-15)
+├── notebooks/                  # Numbered, sequential pipeline notebooks (01-16)
 ├── src/                        # Reusable pipeline code
 │   ├── data/                   # Dataset loading
 │   ├── preprocessing/          # Cleaning, splitting, scaling, feature selection
@@ -85,6 +87,8 @@ Notebooks 01–09 build the core CICIDS2017 pipeline (loading → cleaning → s
 baseline models → advanced models → feature selection → final model → evaluation →
 explainability). Notebooks 10–11 add the CSE-CIC-IDS2018 cross-dataset test.
 Notebooks 12–15 extend cross-dataset testing to UNSW-NB15 and CICDDoS2019.
+Notebook 16 adds a multi-model (LR, DT, RF, XGBoost) cross-dataset comparison with a
+diagnostic threshold analysis, referenced in the Multi-model section below.
 
 ### 4. Launch the demo UI
 

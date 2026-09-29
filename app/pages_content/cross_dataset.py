@@ -82,7 +82,7 @@ def render(cfg: dict):
 
     st.caption(
         "Random Forest at the default 0.5 threshold (20 features; UNSW-NB15 uses the auxiliary "
-        "7-feature model). Green = held-out CICIDS2017 test data. Red = unseen externa "
+        "7-feature model). Green = held-out CICIDS2017 test data. Red = unseen external "
         "datasets."
     )
 
@@ -232,7 +232,10 @@ def render(cfg: dict):
         everything as attack (gain over baseline at most 0.02). No usable transferable signal was found.
         - **CSE-CIC-IDS2018:** Random Forest and Decision Tree gain nothing, but Logistic Regression
         (best F1 0.991) and XGBoost (0.943) keep strong ranking ability (ROC-AUC 0.986 / 0.960)
-        against a baseline F1 of 0.527. Their failure at the default threshold is largely miscalibration.
+        against a baseline F1 of 0.527. However, the oracle-best thresholds for both models are
+        extreme (LR ≈ 1e-8, XGBoost ≈ 1e-5), suggesting this apparent ranking ability reflects
+        numerical saturation under severe distribution shift rather than a genuine, usable
+        decision boundary.
 
         High in-dataset accuracy did not carry over to any external dataset at the default operating
         point, and for the final Random Forest no threshold recovers it. Why some models transfer to 2018
