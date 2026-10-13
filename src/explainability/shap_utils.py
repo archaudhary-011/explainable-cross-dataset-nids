@@ -31,7 +31,7 @@ def get_shap_values_for_positive_class(explainer, X_sample: pd.DataFrame) -> np.
     as a clean 2D numpy array (n_samples, n_features), regardless of which
     SHAP version/output format is in use.
     """
-    raw = explainer.shap_values(X_sample)
+    raw = explainer.shap_values(X_sample, check_additivity=False)
 
     # Case 1: list of arrays, one per class (older SHAP / some sklearn RF outputs)
     if isinstance(raw, list):
