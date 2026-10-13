@@ -60,23 +60,15 @@ def load_cross_model(model_path: str):
 
 
 def explain_and_display(sample_row: pd.DataFrame, model, explainer, feature_names):
-    """Predict one sample and display its SHAP waterfall explanation."""
-    # Optional terminal debugging: uncomment these lines if you need to
-    # inspect the feature values for the currently selected sample.
-    # print("\nFeature values for the current sample:")
-    # print(sample_row.T.to_string())
-
+    """
+    Shared logic: given a single-row dataframe (already in the correct
+    feature order), predicts and shows a SHAP waterfall explanation.
+    """
     pred = model.predict(sample_row)[0]
     proba = model.predict_proba(sample_row)[0]
 
-    # Find the probability index for class 1 (attack), rather than assuming
-    # class ordering without checking the fitted model.
-    classes = list(getattr(model, "classes_", [0, 1]))
-    positive_idx = classes.index(1) if 1 in classes else int(np.argmax(classes))
-    positive_probability = float(proba[positive_idx])
-
     pred_label = "DDoS / Attack" if pred == 1 else "BENIGN"
-    confidence = float(proba[classes.index(pred)])
+    confidence = proba[pred]
 
     col1, col2 = st.columns(2)
     with col1:
@@ -92,77 +84,35 @@ def explain_and_display(sample_row: pd.DataFrame, model, explainer, feature_name
 
     st.subheader("Why did the model decide this? (SHAP explanation)")
     st.caption(
-        "Red bars push the explanation toward the attack class; blue bars push it "
-        "toward BENIGN. The waterfall explains the selected class output."
+        "Red bars push the prediction toward the attack class. Blue bars push it "
+        "toward BENIGN. The final position is the model's output for this specific sample."
     )
 
-    try:
-        # Disable SHAP's internal additivity assertion to avoid the exception
-        # that can occur with some model/data/version combinations. We still
-        # calculate and report the difference below instead of hiding it.
-        raw_shap = explainer.shap_values(sample_row, check_additivity=False)
+    raw_shap = explainer.shap_values(sample_row, check_additivity=False)
+    if isinstance(raw_shap, list):
+        shap_vals = np.asarray(raw_shap[1])
+    else:
+        shap_vals = np.asarray(raw_shap)
+    if shap_vals.ndim == 3:
+        shap_vals = shap_vals[:, :, 1]
 
-        if isinstance(raw_shap, list):
-            # Older SHAP versions return one array per class.
-            shap_vals = np.asarray(raw_shap[positive_idx])
-        else:
-            shap_vals = np.asarray(raw_shap)
-            # Newer SHAP versions may return (samples, features, classes).
-            if shap_vals.ndim == 3:
-                shap_vals = shap_vals[:, :, positive_idx]
+    expected_value = explainer.expected_value
+    if isinstance(expected_value, (list, np.ndarray)):
+        expected_value = expected_value[1]
 
-        # Expected value may be scalar or one value per class.
-        expected_value = np.asarray(explainer.expected_value)
-        if expected_value.ndim > 0 and expected_value.size > 1:
-            expected_value = expected_value.reshape(-1)[positive_idx]
-        else:
-            expected_value = expected_value.reshape(-1)[0]
-        expected_value = float(expected_value)
-
-        # Ensure one-dimensional SHAP values for the single selected row.
-        shap_values_for_row = np.asarray(shap_vals[0]).reshape(-1)
-        if len(shap_values_for_row) != len(feature_names):
-            st.error(
-                "SHAP returned a different number of feature values than expected. "
-                f"SHAP values: {len(shap_values_for_row)}; features: {len(feature_names)}. "
-                "Check that the model and input feature columns match."
-            )
-            return
-
-        approx = float(expected_value + shap_values_for_row.sum())
-        difference = abs(approx - positive_probability)
-        if difference > 0.02:
-            st.warning(
-                f"SHAP total ({approx:.3f}) differs from the model's attack probability "
-                f"({positive_probability:.3f}) by {difference:.3f}. The waterfall is an "
-                "approximation for this model/output configuration; interpret it cautiously."
-            )
-        else:
-            st.caption(
-                f"SHAP total: {approx:.3f} | Model attack probability: "
-                f"{positive_probability:.3f} | Absolute difference: {difference:.3f}"
-            )
-
-        fig = plt.figure(figsize=(10, 6))
-        shap.waterfall_plot(
-            shap.Explanation(
-                values=shap_values_for_row,
-                base_values=expected_value,
-                data=sample_row.iloc[0].to_numpy(),
-                feature_names=list(feature_names),
-            ),
-            show=False,
-        )
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)
-
-    except Exception as exc:
-        st.error(f"Could not create the SHAP explanation: {exc}")
-        st.info(
-            "The prediction above was still generated. If this error continues, "
-            "copy the full error from the terminal and share it for debugging."
-        )
+    fig = plt.figure(figsize=(10, 6))
+    shap.waterfall_plot(
+        shap.Explanation(
+            values=shap_vals[0],
+            base_values=expected_value,
+            data=sample_row.values[0],
+            feature_names=list(feature_names),
+        ),
+        show=False,
+    )
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
 
 
 def render(cfg: dict):
